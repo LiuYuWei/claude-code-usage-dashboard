@@ -1,0 +1,20 @@
+{
+  "name": "claude-code-usage-dashboard",
+  "type": "module",
+  "scripts": {
+    "dev": "uv run --project collector collector/collect.py && open-dashboard dev",
+    "check": "open-dashboard check",
+    "schema": "open-dashboard schema",
+    "sources": "open-dashboard sources",
+    "collect": "uv run --project collector collector/collect.py"
+  },
+  "dependencies": {
+    "@open-dashboard/core": "^0.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "description": "See your own Claude Code usage \u2014 tokens, cost, tools, projects \u2014 on a local dashboard. Your data never leaves your machine.",
+  "private": true
+}

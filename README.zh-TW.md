@@ -1,0 +1,109 @@
+# Claude Code 使用分析 Dashboard
+
+[English](README.md) · **繁體中文**
+
+在你自己的電腦上，看清楚你怎麼使用 Claude Code：token、費用、模型、工具、專案，以及你都在什麼時間工作。它讀取的是 Claude Code 本來就存在你電腦裡的對話紀錄。**不會上傳到任何地方**，你跟 Claude 說過的內容也不會被複製——只留下數字和名稱。
+
+以 [open-dashboard](https://github.com/simonliu-ai-product/open-dashboard) 打造。
+
+## 看得到什麼
+
+| 面板 | 回答的問題 |
+| --- | --- |
+| 工作階段、使用者訊息、API 請求、輸出 Token、費用、新增程式碼行數 | 所選期間與專案的總量 |
+| 每日 API 請求（月曆） | 哪幾天用了 Claude Code、用了多少 |
+| 一週工作節奏（時段 × 星期） | 一週裡你都在什麼時間用它 |
+| 每日輸出 Token（依模型） | 輸出量在各模型間怎麼分配、什麼時候換了模型 |
+| 各專案費用 | 錢花在哪些專案 |
+| 提示快取命中率 | 輸入有多少是從提示快取讀取 |
+| 最常使用的工具・工具失敗率 | Claude 都在幫你做什麼、哪些最常失敗 |
+| API 運算時間與費用 | 每個工作階段等待 API 的時間、費用與新增的程式碼行數 |
+| 最近的工作階段・模型使用比例 | 最新的工作階段，以及各模型的使用比例 |
+
+所有面板都能依期間與專案篩選。
+
+## 你的資料只留在你的電腦
+
+**讀取什麼：** Claude Code 寫在 `~/.claude/projects/**/*.jsonl` 的對話紀錄（設定了 `CLAUDE_CONFIG_DIR` 時則是 `$CLAUDE_CONFIG_DIR/projects`）。
+
+**保留什麼**——存在這個資料夾裡的 `data/usage.db`（SQLite 檔）：
+
+- 每次請求與工具呼叫的時間，以及所屬專案（git repo 的資料夾名稱）
+- 模型，以及 token 數（輸入、輸出、快取讀取與寫入）
+- 呼叫的工具名稱，以及是否失敗
+- 每個工作階段由 Claude Code 自己記錄的費用與新增／刪除行數
+- 你輸入了幾則訊息——但不是訊息內容
+
+**絕不保留：** 你的提問、Claude 的回答與思考過程、工作階段標題、檔案路徑、檔案內容、指令，以及工具的輸入與輸出。
+
+- `data/` 已列在 `.gitignore`：你的使用資料永遠不會被 commit，可以放心 fork、push 這個專案。
+- Dashboard 只在 `localhost` 執行，以唯讀方式讀取 `data/usage.db`，不會對外傳送任何資料。
+- 想刪除收集到的所有資料，刪掉 `data/usage.db` 即可。
+
+## 開始使用
+
+需要：
+
+- [Node.js](https://nodejs.org) 22.18 以上與 [pnpm](https://pnpm.io)
+- [uv](https://docs.astral.sh/uv/)，收集程式會用到（它會自行安裝所需的 Python）
+- 這台電腦上至少用過一次 Claude Code
+
+（有 [mise](https://mise.jdx.dev) 的話，`mise install` 會依 `.mise.toml` 裝好 Node、pnpm 與 Python。）
+
+```bash
+git clone https://github.com/LiuYuWei/claude-code-usage-dashboard.git
+cd claude-code-usage-dashboard
+pnpm install
+pnpm dev
+```
+
+`pnpm dev` 會先收集你的使用資料（就算紀錄有幾百 MB，也只要幾秒），再開啟 Dashboard：**http://localhost:5473**。
+
+## 更新數字
+
+收集程式只會讀取上次之後有變動的紀錄。Dashboard 開著的時候，要更新數字就執行：
+
+```bash
+pnpm collect
+```
+
+再重新整理頁面即可；重新啟動 `pnpm dev` 也一樣。
+
+如果 Claude Code 的資料放在其他位置，告訴收集程式：
+
+```bash
+CLAUDE_CONFIG_DIR=/path/to/claude-config pnpm collect
+```
+
+## 需要知道的事
+
+- **費用是 Claude Code 自己記錄的數字**，在工作階段結束時寫入。還開著的工作階段在那之前會顯示 `—`，所以總費用是已結束工作階段的合計。
+- **專案以 git repo 命名**——在 `my-app/packages/web` 裡的工作階段算在 `my-app`。不在 repo 裡的，就用資料夾本身的名稱。
+- **時間是你電腦的當地時間。**
+- **工作階段可能橫跨好幾天**（你中途接著用），所以「花了多久」用的是等待 API 的時間，而不是第一則到最後一則訊息的間隔。
+- 對話紀錄的格式是 Claude Code 內部的，版本更新後可能改變。如果更新後某個面板變成空的，歡迎開 issue。
+
+## 分享一張截圖
+
+右上角「預覽／編輯」旁的下載按鈕，可以把整張 Dashboard 存成 PNG 或 SVG——只有圖表和統計結果，沒有背後的資料。分享前請先看一下內容：**圖上會出現專案名稱**，可能是客戶或產品名稱。
+
+## 改成你想要的樣子
+
+這是一個 [open-dashboard](https://github.com/simonliu-ai-product/open-dashboard) workspace：面板寫在 `dashboards/usage/index.tsx`（React），查詢寫在 `dashboards/usage/queries.sql`（SQL），每張資料表的意思寫在 `databases/usage/database.md`。專案內建了給 Coding Agent 用的 skills——用 Claude Code 打開這個資料夾，直接說你想要的面板（例如「加一張每週各模型的費用」）。
+
+```
+collector/collect.py          讀取 ~/.claude/projects，寫入 data/usage.db
+dashboards/usage/             Dashboard：index.tsx（版面）與 queries.sql
+databases/usage/database.md   每張資料表與欄位的說明
+open-dashboard.config.ts      資料來源：data/usage.db
+```
+
+```bash
+pnpm collect                              # 更新 data/usage.db
+pnpm exec open-dashboard check            # 執行所有查詢，檢查每個面板
+pnpm exec open-dashboard query "SELECT model, COUNT(*) FROM requests GROUP BY model"
+```
+
+## 授權
+
+MIT
