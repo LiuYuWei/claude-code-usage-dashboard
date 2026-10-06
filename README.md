@@ -22,6 +22,20 @@ Built on [open-dashboard](https://github.com/simonliu-ai-product/open-dashboard)
 
 Filter everything by period and by project.
 
+A second dashboard, **Claude Code insights**, digs deeper:
+
+| Panel | What it answers |
+| --- | --- |
+| Tool flow (Sankey) | What Claude does next after reading, editing, running a command, using the browser… |
+| Cost concentration (Pareto) | How much of the spend the costliest 20 % of sessions account for |
+| Weekly project rank · Weekly requests per project | Which project was the main one each week |
+| Output tokens per response by model (box plot) | How long each model's answers run |
+| Cumulative session cost (ECDF) | "Half of my sessions cost under X, 90 % under Y" |
+| Daily requests with control limits | Days far above your usual use |
+| Tool mix per project (Marimekko) | Whether a project is mostly commands, edits, reading or browsing |
+| Net lines per project · Requests per message | Which projects grew, and how far Claude goes on its own per message |
+| Return to new projects (cohort) | How often you come back to a project in the weeks after starting it |
+
 ## Your data stays on your machine
 
 **What is read:** the session logs Claude Code writes to `~/.claude/projects/**/*.jsonl` (or `$CLAUDE_CONFIG_DIR/projects`).
@@ -93,7 +107,8 @@ This is an [open-dashboard](https://github.com/simonliu-ai-product/open-dashboar
 
 ```
 collector/collect.py          reads ~/.claude/projects, writes data/usage.db
-dashboards/usage/             the dashboard: index.tsx (layout) and queries.sql
+dashboards/usage/             the overview: index.tsx (layout) and queries.sql
+dashboards/insights/          the deeper analysis, same layout
 databases/usage/database.md   every table and column
 open-dashboard.config.ts      the data source: data/usage.db
 ```

@@ -22,6 +22,20 @@
 
 所有面板都能依期間與專案篩選。
 
+第二張 Dashboard「**Claude Code 深入分析**」看得更深：
+
+| 面板 | 回答的問題 |
+| --- | --- |
+| 工具接續流程（Sankey） | Claude 讀完檔、改完檔、跑完指令、用完瀏覽器之後，下一步通常做什麼 |
+| 工作階段的費用集中度（Pareto） | 最花錢的 20% 工作階段佔了多少費用 |
+| 專案每週請求排名・前六大專案的每週請求 | 每一週的主力專案是哪個 |
+| 各模型單次回應的輸出 Token（箱形圖） | 各模型的回答有多長 |
+| 工作階段費用的累積分布（ECDF） | 「一半的工作階段花費在多少以內、九成在多少以內」 |
+| 每日請求的異常偵測（管制圖） | 哪幾天用量遠高於平常 |
+| 各專案的工具類型組成（Marimekko） | 一個專案主要是在跑指令、改檔、讀檔還是用瀏覽器 |
+| 各專案程式碼淨增減・每則訊息帶動的 API 請求數 | 哪些專案在長大，以及每則訊息 Claude 會自主做多少事 |
+| 新專案之後幾週的回訪（Cohort） | 開始一個專案後，接下來幾週還會回來用多少 |
+
 ## 你的資料只留在你的電腦
 
 **讀取什麼：** Claude Code 寫在 `~/.claude/projects/**/*.jsonl` 的對話紀錄（設定了 `CLAUDE_CONFIG_DIR` 時則是 `$CLAUDE_CONFIG_DIR/projects`）。
@@ -93,7 +107,8 @@ CLAUDE_CONFIG_DIR=/path/to/claude-config pnpm collect
 
 ```
 collector/collect.py          讀取 ~/.claude/projects，寫入 data/usage.db
-dashboards/usage/             Dashboard：index.tsx（版面）與 queries.sql
+dashboards/usage/             總覽：index.tsx（版面）與 queries.sql
+dashboards/insights/          深入分析，結構相同
 databases/usage/database.md   每張資料表與欄位的說明
 open-dashboard.config.ts      資料來源：data/usage.db
 ```
