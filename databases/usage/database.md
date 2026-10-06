@@ -10,6 +10,7 @@ Claude Code usage on this machine, collected by `collector/collect.py` (`pnpm co
 - `model = '<synthetic>'` marks messages Claude Code wrote itself (no API call): leave them out of request counts.
 - Cost and lines changed are **Claude Code's own record** (`cost-state`), per session — not computed here. A session without one has no row in `session_costs`.
 - A session can be resumed over several days, so `ended − started` is not working time; `session_costs.api_seconds` is the time spent waiting on the API.
+- The context a request read is `input_tokens + cache_write_tokens + cache_read_tokens`. It is usually most of what a request uses.
 - Input tokens come in three kinds: `input_tokens` (not cached), `cache_write_tokens` (written to the prompt cache) and `cache_read_tokens` (served from it).
 
 ## Tables
@@ -21,7 +22,7 @@ Claude Code usage on this machine, collected by `collector/collect.py` (`pnpm co
 One row per API response: `ts`, `session_id`, `project`, `model`, `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `subagent` (1 when a subagent made it), `stop_reason`.
 
 ### tool_calls
-One row per tool call: `ts`, `session_id`, `project`, `tool` (MCP tools as `mcp__<server>__<tool>`), `subagent`, `is_error` (1 when the result was an error — including a question the user declined).
+One row per tool call: `ts`, `session_id`, `project`, `tool` (MCP tools as `mcp__<server>__<tool>`), `subagent`, `is_error` (1 when the result was an error — including a question the user declined), `result_chars` and `result_images` (the size of what the result put into the context; the result itself is not kept).
 
 ### prompts
 One row per message the person typed (not tool results, not meta lines, not subagents): `uuid`, `ts`, `session_id`, `project`.

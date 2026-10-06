@@ -21,7 +21,7 @@ from pathlib import Path
 SOURCE = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser() / "projects"
 DB = Path(__file__).resolve().parent.parent / "data" / "usage.db"
 HOME = str(Path.home())
-NAMING = 2
+NAMING = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, size INTEGER, mtime REAL);
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS requests (
   subagent INTEGER, stop_reason TEXT);
 CREATE TABLE IF NOT EXISTS tool_calls (
   tool_use_id TEXT PRIMARY KEY, file TEXT, session_id TEXT, project TEXT, ts TEXT, tool TEXT,
-  subagent INTEGER, is_error INTEGER);
+  subagent INTEGER, is_error INTEGER, result_chars INTEGER, result_images INTEGER);
 CREATE TABLE IF NOT EXISTS prompts (uuid TEXT PRIMARY KEY, file TEXT, session_id TEXT, project TEXT, ts TEXT);
 CREATE TABLE IF NOT EXISTS session_costs (
   session_id TEXT PRIMARY KEY, file TEXT, cost_usd REAL, lines_added INTEGER, lines_removed INTEGER,
@@ -68,6 +68,19 @@ def is_prompt(record: dict) -> bool:
         kinds = {part.get("type") for part in content if isinstance(part, dict)}
         return "text" in kinds and "tool_result" not in kinds
     return False
+
+
+def result_size(content) -> tuple[int, int]:
+    """A tool result's size: characters of text, and the number of images."""
+    if isinstance(content, str):
+        return len(content), 0
+    chars = images = 0
+    for part in content if isinstance(content, list) else []:
+        if isinstance(part, dict) and part.get("type") == "image":
+            images += 1
+        elif isinstance(part, dict):
+            chars += len(part.get("text") or "")
+    return chars, images
 
 
 def read_file(db: sqlite3.Connection, path: Path) -> None:
@@ -116,14 +129,21 @@ def read_file(db: sqlite3.Connection, path: Path) -> None:
                 )
             for part in message.get("content") or []:
                 if isinstance(part, dict) and part.get("type") == "tool_use" and part.get("id"):
-                    calls[part["id"]] = [part["id"], file, session, project, ts, part.get("name"), sub, 0]
+                    calls[part["id"]] = [part["id"], file, session, project, ts, part.get("name"), sub, 0, 0, 0]
 
         elif kind == "user":
             content = (record.get("message") or {}).get("content")
             if isinstance(content, list):
                 for part in content:
-                    if isinstance(part, dict) and part.get("type") == "tool_result" and part.get("is_error"):
+                    if not (isinstance(part, dict) and part.get("type") == "tool_result"):
+                        continue
+                    if part.get("is_error"):
                         errors.add(part.get("tool_use_id"))
+                    # How much the result put into the context — its size, never its text.
+                    size = result_size(part.get("content"))
+                    if part.get("tool_use_id") in calls:
+                        calls[part["tool_use_id"]][8] += size[0]
+                        calls[part["tool_use_id"]][9] += size[1]
             if is_prompt(record) and record.get("uuid"):
                 prompts.append((record["uuid"], file, session, project, ts))
 
@@ -141,7 +161,7 @@ def read_file(db: sqlite3.Connection, path: Path) -> None:
         [(sid, file, s["project"], s["started"], s["ended"], s.get("version"), s.get("entrypoint")) for sid, s in sessions.items()],
     )
     db.executemany("INSERT OR REPLACE INTO requests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", requests.values())
-    db.executemany("INSERT OR REPLACE INTO tool_calls VALUES (?, ?, ?, ?, ?, ?, ?, ?)", calls.values())
+    db.executemany("INSERT OR REPLACE INTO tool_calls VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", calls.values())
     db.executemany("INSERT OR REPLACE INTO prompts VALUES (?, ?, ?, ?, ?)", prompts)
     db.executemany("INSERT OR REPLACE INTO session_costs VALUES (?, ?, ?, ?, ?, ?, ?)", costs.values())
 
@@ -150,9 +170,11 @@ def main() -> None:
     DB.parent.mkdir(exist_ok=True)
     db = sqlite3.connect(DB)
     db.executescript(SCHEMA)
-    # How projects are named is part of what is stored: a new rule reads everything again.
+    # A change to what is stored (a column, how projects are named) rebuilds it all.
     if db.execute("PRAGMA user_version").fetchone()[0] != NAMING:
-        db.execute("DELETE FROM files")
+        for table in ("files", "sessions", "requests", "tool_calls", "prompts", "session_costs"):
+            db.execute(f"DROP TABLE IF EXISTS {table}")
+        db.executescript(SCHEMA)
         db.execute(f"PRAGMA user_version = {NAMING}")
     seen = {path: (size, mtime) for path, size, mtime in db.execute("SELECT path, size, mtime FROM files")}
     if not SOURCE.is_dir():

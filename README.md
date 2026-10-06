@@ -36,6 +36,22 @@ A second dashboard, **Claude Code insights**, digs deeper:
 | Net lines per project · Requests per message | Which projects grew, and how far Claude goes on its own per message |
 | Return to new projects (cohort) | How often you come back to a project in the weeks after starting it |
 
+## Why does my usage run out so fast?
+
+The third dashboard, **Claude Code usage diagnosis**, is for this question. Most of what a request costs is usually not the answer Claude writes but the conversation it has to **read again** before answering — on long sessions, well over 99 % of the tokens. What drives it, and where to see it:
+
+| On the dashboard | What it means | What helps |
+| --- | --- | --- |
+| **Share of tokens spent reading** close to 100 %, **context per request** in the hundreds of thousands | Every message re-reads the whole conversation so far | Start a new conversation for a new task (`/clear`), or `/compact` a long one |
+| **Context growth** climbing in a sawtooth up to the model's limit | The conversation is never cleared; it only shrinks when it is compacted automatically, then grows again | Same: clear between tasks instead of carrying one session all day |
+| **Characters tool results put into the context** led by one tool | Long command output, large files or many screenshots stay in the context and are read again on every later request | Ask for shorter output (`… \| tail -50`), read parts of large files, take fewer screenshots |
+| **Cache rebuilds** | After a pause the prompt cache has expired, and the whole context is written to it again | Long pauses in a huge session cost more; start fresh after a break |
+| **Subagent requests** | Each subagent works with its own context, in parallel | Use subagents for work that needs them |
+| **Tokens by model** | Larger models use more of a plan's allowance for the same work | Use a smaller model for routine work |
+| **Tokens per five-hour window** | Plan usage is counted per window; this shows which windows were heavy | Spread heavy work, or keep the context small in the busy ones |
+
+The five-hour windows are reconstructed from the logs (a window opens with the first request after the previous one closed); they are an approximation, not your plan's own meter.
+
 ## Your data stays on your machine
 
 **What is read:** the session logs Claude Code writes to `~/.claude/projects/**/*.jsonl` (or `$CLAUDE_CONFIG_DIR/projects`).
@@ -44,7 +60,7 @@ A second dashboard, **Claude Code insights**, digs deeper:
 
 - when each request and tool call happened, and in which project (the name of its git repository folder)
 - the model, and the token counts (input, output, cache reads and writes)
-- the name of each tool called, and whether it failed
+- the name of each tool called, whether it failed, and how large its result was (characters and images — not the result itself)
 - per session, the cost and lines added / removed that Claude Code itself recorded
 - how many messages you typed — not what they said
 
@@ -109,6 +125,7 @@ This is an [open-dashboard](https://github.com/simonliu-ai-product/open-dashboar
 collector/collect.py          reads ~/.claude/projects, writes data/usage.db
 dashboards/usage/             the overview: index.tsx (layout) and queries.sql
 dashboards/insights/          the deeper analysis, same layout
+dashboards/diagnosis/         why usage runs out, same layout
 databases/usage/database.md   every table and column
 open-dashboard.config.ts      the data source: data/usage.db
 ```
